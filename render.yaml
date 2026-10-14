@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: careermark-web
+    env: python
+    buildCommand: "pip install -r requirements.txt && playwright install chromium"
+    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: careermark-db
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+
+  - type: psql
+    name: careermark-db
+    plan: free
