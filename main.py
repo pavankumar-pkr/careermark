@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from core.config import settings
 from api.v1 import auth, platform
+from db.database import engine, Base
+
+# Create all database tables on startup
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="CareerMark API",
