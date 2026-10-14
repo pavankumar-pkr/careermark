@@ -18,6 +18,6 @@ services:
       - key: SECRET_KEY
         generateValue: true
 
-  - type: psql
+  - type: postgres
     name: careermark-db
     plan: free
