@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareerMark | Opportunity Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        cm: { bg: '#0B1120', surface: '#151E2E', border: '#1E293B', text: '#F8FAFC', muted: '#94A3B8', blue: '#3B82F6', verified: '#14b8a6', warning: '#f59e0b', danger: '#ef4444' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #0B1120; color: #F8FAFC; overflow: hidden; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .surface-card { background: #151E2E; border: 1px solid #1E293B; border-radius: 12px; transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease; }
+        .surface-card.interactive:hover { border-color: #334155; box-shadow: 0 4px 20px -2px rgba(0,0,0,0.4); transform: translateY(-2px); }
+        .reveal-enter-active { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .reveal-leave-active { transition: all 0.2s ease; }
+        .reveal-enter-from { opacity: 0; transform: translateY(10px); }
+        .reveal-leave-to { opacity: 0; transform: translateY(-10px); }
+        .pulse-verified { animation: pulse-glow 1.5s cubic-bezier(0.4, 0, 0.6, 1) 1; }
+        @keyframes pulse-glow { 0% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(20, 184, 166, 0); } 100% { box-shadow: 0 0 0 0 rgba(20, 184, 166, 0); } }
+        .skeleton { background: linear-gradient(90deg, #1E293B 25%, #334155 50%, #1E293B 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    </style>
+</head>
+<body class="text-sm">
+    <div id="app" class="h-screen flex flex-col md:flex-row">
+        
+        <!-- LOGIN -->
+        <div v-if="currentView === 'login'" class="fixed inset-0 bg-cm-bg z-50 flex items-center justify-center p-4">
+            <div class="w-full max-w-md surface-card p-8">
+                <div class="text-center mb-10"><h1 class="text-2xl font-bold tracking-tight text-white mb-2">CareerMark</h1><p class="text-cm-muted">Sign in to your opportunity intelligence platform</p></div>
+                <div v-if="loginError" class="bg-red-500/10 border border-red-500/20 text-cm-danger p-4 rounded-lg mb-6 flex items-start"><i class="fas fa-circle-exclamation mt-1 mr-3"></i><span>{{ loginError }}</span></div>
+                <form @submit.prevent="handleLogin" class="space-y-5">
+                    <div><label class="block text-xs font-medium text-cm-muted mb-1.5 uppercase tracking-wide">Email Address</label><input v-model="loginForm.email" type="email" class="w-full bg-[#0B1120] border border-cm-border text-white rounded-lg px-4 py-2.5" required></div>
+                    <div><label class="block text-xs font-medium text-cm-muted mb-1.5 uppercase tracking-wide">Password</label><input v-model="loginForm.password" type="password" class="w-full bg-[#0B1120] border border-cm-border text-white rounded-lg px-4 py-2.5" required></div>
+                    <button type="submit" class="w-full bg-cm-blue hover:bg-blue-500 text-white font-medium rounded-lg px-4 py-3">{{ isAuthenticating ? 'Authenticating...' : 'Sign In' }}</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- APP SHELL -->
+        <template v-if="currentView !== 'login'">
+            <!-- SIDEBAR -->
+            <aside class="w-full md:w-64 border-b md:border-b-0 md:border-r border-cm-border bg-cm-bg flex flex-col z-20 shrink-0">
+                <div class="p-6 flex items-center"><div class="w-6 h-6 rounded bg-cm-blue flex items-center justify-center mr-3"><i class="fas fa-briefcase text-white text-[10px]"></i></div><h1 class="text-lg font-bold tracking-tight">CareerMark</h1></div>
+                <nav class="flex-1 px-4 space-y-1 overflow-y-auto">
+                    <div class="text-[10px] font-semibold text-cm-muted uppercase tracking-wider mb-2 mt-4 px-2">Intelligence</div>
+                    <button @click="currentView = 'home'" :class="['w-full flex items-center text-left px-3 py-2 rounded-lg', currentView === 'home' ? 'bg-cm-blue/10 text-cm-blue' : 'text-cm-muted hover:text-white hover:bg-cm-surface']"><i class="fas fa-compass w-5 mr-2"></i> Discover</button>
+                    <button @click="currentView = 'pipeline'" :class="['w-full flex items-center text-left px-3 py-2 rounded-lg', currentView === 'pipeline' ? 'bg-cm-blue/10 text-cm-blue' : 'text-cm-muted hover:text-white hover:bg-cm-surface']"><i class="fas fa-layer-group w-5 mr-2"></i> Pipeline</button>
+                    <button @click="currentView = 'preparation'" :class="['w-full flex items-center text-left px-3 py-2 rounded-lg', currentView === 'preparation' ? 'bg-cm-blue/10 text-cm-blue' : 'text-cm-muted hover:text-white hover:bg-cm-surface']"><i class="fas fa-book-open w-5 mr-2"></i> Preparation</button>
+                    
+                    <div class="text-[10px] font-semibold text-cm-muted uppercase tracking-wider mb-2 mt-8 px-2">Account</div>
+                    <button @click="currentView = 'profile'" :class="['w-full flex items-center text-left px-3 py-2 rounded-lg', currentView === 'profile' ? 'bg-cm-blue/10 text-cm-blue' : 'text-cm-muted hover:text-white hover:bg-cm-surface']"><i class="fas fa-user w-5 mr-2"></i> Profile</button>
+                    <button @click="currentView = 'settings'" :class="['w-full flex items-center text-left px-3 py-2 rounded-lg', currentView === 'settings' ? 'bg-cm-blue/10 text-cm-blue' : 'text-cm-muted hover:text-white hover:bg-cm-surface']"><i class="fas fa-cog w-5 mr-2"></i> Settings</button>
+                </nav>
+                <div class="p-4 border-t border-cm-border mt-auto"><div class="flex items-center justify-between px-2"><div class="flex items-center truncate"><div class="w-8 h-8 rounded-full bg-cm-surface border border-cm-border flex items-center justify-center text-xs font-medium text-white mr-3 shrink-0">{{ homeData.profile?.name ? homeData.profile.name.substring(0,2).toUpperCase() : 'CN' }}</div><div class="truncate"><p class="text-xs font-medium text-white truncate">{{ homeData.profile?.name }}</p></div></div><button @click="logout" class="text-cm-muted hover:text-white ml-2"><i class="fas fa-sign-out-alt"></i></button></div></div>
+            </aside>
+
+            <!-- MAIN CONTENT -->
+            <main class="flex-1 flex flex-col overflow-hidden bg-cm-bg relative">
+                <!-- TOP HEADER -->
+                <header class="h-16 border-b border-cm-border flex items-center justify-between px-8 shrink-0">
+                    <div class="flex-1 max-w-xl relative"><i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-cm-muted text-xs"></i><input type="text" placeholder="Search opportunities, organizations, or skills..." class="w-full bg-cm-surface border border-cm-border rounded-lg pl-9 pr-4 py-2 text-xs text-white focus:border-cm-blue focus:ring-1 focus:outline-none"></div>
+                    <div class="flex items-center relative ml-4">
+                        <button @click="showNotifications = !showNotifications" class="relative text-cm-muted hover:text-white transition-colors p-2">
+                            <i class="fas fa-bell"></i><span class="absolute top-1 right-1 w-2 h-2 bg-cm-blue rounded-full"></span>
+                        </button>
+                        
+                        <!-- Notifications Dropdown -->
+                        <div v-if="showNotifications" class="absolute top-12 right-0 w-80 bg-cm-surface border border-cm-border rounded-lg shadow-2xl z-50 overflow-hidden">
+                            <div class="p-4 border-b border-cm-border"><h3 class="font-semibold text-white">Notifications</h3></div>
+                            <div class="p-8 text-center text-cm-muted flex flex-col items-center">
+                                <i class="fas fa-check-circle text-3xl mb-3 text-cm-border"></i>
+                                <p class="text-sm">You're all caught up.</p>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="flex-1 overflow-y-auto p-8" @click="showNotifications = false">
+                    <div v-if="isLoadingData" class="max-w-5xl mx-auto space-y-8"><div class="h-24 skeleton rounded-xl"></div><div class="grid grid-cols-1 md:grid-cols-3 gap-6"><div class="h-40 skeleton rounded-xl" v-for="i in 3"></div></div></div>
+
+                    <!-- HOME VIEW -->
+                    <div v-if="currentView === 'home' && !isLoadingData" class="max-w-5xl mx-auto space-y-10 pb-12">
+                        <header><h2 class="text-2xl font-bold text-white mb-1">Good morning, {{ homeData.profile?.name.split(' ')[0] }}.</h2><p class="text-cm-muted">Here are the verified opportunities that match your profile today.</p></header>
+                        <div v-if="homeData.hero" class="surface-card interactive p-6 relative cursor-pointer" @click="openTrustEngine(homeData.hero)">
+                            <div class="absolute top-0 right-0 p-6"><span class="px-2.5 py-1 rounded-full bg-cm-verified/10 text-cm-verified text-[10px] font-medium border border-cm-verified/20"><i class="fas fa-shield-check mr-1.5"></i> Verified Source</span></div>
+                            <p class="text-xs font-medium text-cm-muted uppercase tracking-wider mb-2">{{ homeData.hero.org }}</p>
+                            <h3 class="text-xl font-bold text-white mb-2">{{ homeData.hero.title }}</h3>
+                            <div class="flex items-center text-xs text-cm-muted space-x-4 mt-6"><span class="flex items-center"><i class="far fa-calendar mr-1.5"></i> Closes: {{ homeData.hero.date }}</span></div>
+                        </div>
+                        <section v-for="carousel in homeData.carousels"><h4 class="text-sm font-semibold text-white mb-4">{{ carousel.title }}</h4><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"><div v-for="item in carousel.items" class="surface-card interactive p-5 flex flex-col justify-between cursor-pointer" @click="openTrustEngine(item)"><div><span class="text-[10px] font-medium text-cm-muted uppercase">{{ item.org }}</span><h5 class="font-semibold text-white mt-2">{{ item.title }}</h5></div><div class="mt-5 pt-4 border-t border-cm-border flex justify-between items-center text-[10px]"><span class="text-cm-muted"><i class="far fa-clock mr-1"></i> {{ item.date }}</span><span class="text-cm-blue font-medium">Evaluate <i class="fas fa-chevron-right ml-1"></i></span></div></div></div></section>
+                    </div>
+
+                    <!-- PIPELINE VIEW -->
+                    <div v-if="currentView === 'pipeline' && !isLoadingData" class="max-w-6xl mx-auto h-full flex flex-col pb-12">
+                        <header class="mb-8"><h2 class="text-2xl font-bold text-white mb-1">Application Pipeline</h2></header>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 items-start">
+                            <div v-for="(colName, idx) in ['Target Identified', 'Preparation Active', 'Application Submitted']" class="flex flex-col bg-cm-surface/50 rounded-xl border border-cm-border p-4 min-h-[500px]">
+                                <div class="flex items-center justify-between mb-4 px-2"><h3 class="text-xs font-semibold uppercase text-cm-muted">{{ colName }}</h3><span class="bg-cm-bg px-2 py-0.5 rounded text-[10px]">{{ pipelineData[colName]?.length || 0 }}</span></div>
+                                <div v-if="!pipelineData[colName] || pipelineData[colName].length === 0" class="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-cm-border rounded-lg text-cm-muted"><i class="fas fa-inbox text-2xl mb-2"></i><p class="text-xs">No applications</p></div>
+                                <div class="space-y-3"><div v-for="app in pipelineData[colName]" class="surface-card p-4 relative group"><span class="text-[10px] text-cm-muted uppercase">{{ app.org }}</span><h4 class="text-sm font-semibold text-white mb-3">{{ app.title }}</h4><div class="flex justify-between items-end"><span class="text-[10px] text-cm-muted"><i class="far fa-calendar-alt mr-1"></i> {{ app.date }}</span><button v-if="idx < 2" @click="updateStatus(app.app_id, idx===0 ? 'Preparation Active' : 'Application Submitted')" class="text-xs bg-cm-bg hover:bg-cm-blue text-cm-muted hover:text-white px-2 py-1 rounded border border-cm-border opacity-0 group-hover:opacity-100 transition-all">Move <i class="fas fa-arrow-right ml-1"></i></button></div></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PREPARATION EMPTY STATE -->
+                    <div v-if="currentView === 'preparation'" class="max-w-4xl mx-auto flex flex-col items-center justify-center py-32 text-center">
+                        <div class="w-20 h-20 rounded-full bg-cm-surface border border-cm-border flex items-center justify-center mb-6"><i class="fas fa-book-open text-3xl text-cm-muted"></i></div>
+                        <h2 class="text-2xl font-bold text-white mb-2">Preparation Center</h2>
+                        <p class="text-cm-muted max-w-md mx-auto mb-8">Choose an opportunity from your Discover feed and save it to your pipeline to automatically generate a structured preparation plan.</p>
+                        <button @click="currentView = 'home'" class="px-6 py-2.5 bg-cm-surface border border-cm-border text-white rounded-lg hover:border-cm-blue transition-colors">Explore Opportunities</button>
+                    </div>
+
+                    <!-- PROFILE EMPTY STATE -->
+                    <div v-if="currentView === 'profile'" class="max-w-3xl mx-auto pb-12">
+                        <header class="mb-8"><h2 class="text-2xl font-bold text-white">Your Profile</h2><p class="text-cm-muted">Manage your credentials to improve eligibility accuracy.</p></header>
+                        <div class="surface-card p-8 flex items-center space-x-6 mb-6">
+                            <div class="w-20 h-20 rounded-full bg-cm-bg border border-cm-border flex items-center justify-center text-2xl font-medium text-white">{{ homeData.profile?.name ? homeData.profile.name.substring(0,2).toUpperCase() : 'CN' }}</div>
+                            <div><h3 class="text-xl font-bold text-white">{{ homeData.profile?.name }}</h3><p class="text-cm-muted">{{ homeData.profile?.institution }} • {{ homeData.profile?.degree }}</p></div>
+                        </div>
+                        
+                        <div class="surface-card p-6 mb-6">
+                            <h3 class="font-bold text-white mb-4">Current Verified Data</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><span class="block text-xs text-cm-muted">Degree</span><span class="text-white">{{ homeData.profile?.degree || 'Not Provided' }}</span></div>
+                                <div><span class="block text-xs text-cm-muted">Graduation Year</span><span class="text-white">{{ homeData.profile?.graduation_year || 'Not Provided' }}</span></div>
+                                <div><span class="block text-xs text-cm-muted">Age</span><span class="text-white">{{ homeData.profile?.age || 'Not Provided' }}</span></div>
+                            </div>
+                        </div>
+
+                        <div class="surface-card p-6">
+                            <h3 class="font-bold text-white mb-2"><i class="fas fa-file-pdf text-red-400 mr-2"></i> AI Resume Extraction</h3>
+                            <p class="text-xs text-cm-muted mb-4">Upload your PDF resume. Our local AI will extract your credentials for your review. No data is saved without your explicit confirmation.</p>
+                            
+                            <input type="file" @change="handleFileUpload" accept=".pdf" class="block w-full text-sm text-cm-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-cm-blue file:text-white hover:file:bg-blue-600 cursor-pointer mb-4">
+                            
+                            <div v-if="isParsingResume" class="text-cm-blue text-xs mt-2"><i class="fas fa-circle-notch fa-spin mr-2"></i> Analyzing document...</div>
+                            
+                            <div v-if="proposedProfile" class="mt-4 p-4 border border-cm-verified/30 bg-cm-verified/10 rounded-lg">
+                                <h4 class="text-xs font-bold text-cm-verified uppercase tracking-wider mb-3">Proposed Updates Found</h4>
+                                <ul class="space-y-2 text-sm text-white mb-4">
+                                    <li v-for="(val, key) in proposedProfile" :key="key"><span class="text-cm-muted uppercase text-[10px] w-24 inline-block">{{ key }}</span> {{ val }}</li>
+                                </ul>
+                                <button @click="confirmProfileUpdates" class="bg-cm-verified text-cm-bg px-4 py-2 rounded font-medium hover:bg-teal-400 transition-colors">Confirm & Update Profile</button>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- SETTINGS EMPTY STATE -->
+                    <div v-if="currentView === 'settings'" class="max-w-3xl mx-auto pb-12">
+                        <header class="mb-8"><h2 class="text-2xl font-bold text-white">Platform Settings</h2></header>
+                        <div class="space-y-4">
+                            <div class="surface-card p-6 flex justify-between items-center"><div><h4 class="font-medium text-white">Application Theme</h4><p class="text-xs text-cm-muted mt-1">Dark mode is enforced for this preview.</p></div><div class="w-12 h-6 bg-cm-blue rounded-full relative"><div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div></div></div>
+                            <div class="surface-card p-6 flex justify-between items-center"><div><h4 class="font-medium text-white">Email Notifications</h4><p class="text-xs text-cm-muted mt-1">Receive alerts for approaching deadlines.</p></div><div class="w-12 h-6 bg-cm-bg border border-cm-border rounded-full relative"><div class="absolute left-1 top-1 w-4 h-4 bg-cm-muted rounded-full"></div></div></div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+
+            <!-- TRUST ENGINE OVERLAY (Phase 14 Real API Integration) -->
+            <transition name="reveal">
+                <div v-if="activeEngine" class="fixed inset-0 z-50 flex justify-end bg-cm-bg/80 backdrop-blur-sm">
+                    <div class="w-full max-w-2xl bg-cm-surface border-l border-cm-border h-full flex flex-col shadow-2xl overflow-y-auto">
+                        <div class="p-8 border-b border-cm-border sticky top-0 bg-cm-surface/95 backdrop-blur z-10">
+                            <div class="flex justify-between items-start mb-4"><span class="text-xs font-medium text-cm-muted uppercase">{{ activeEngine.org }}</span><button @click="closeTrustEngine" class="w-8 h-8 rounded bg-cm-bg border border-cm-border text-cm-muted hover:text-white flex items-center justify-center"><i class="fas fa-times"></i></button></div>
+                            <h2 class="text-2xl font-bold text-white mb-4">{{ activeEngine.title }}</h2>
+                            <div class="flex items-center bg-cm-bg border border-cm-border rounded-lg p-4">
+                                <div v-if="evaluationState === 'running'" class="flex items-center text-cm-blue"><i class="fas fa-circle-notch fa-spin text-lg mr-3"></i><span class="text-sm font-medium">Verifying official requirements...</span></div>
+                                <div v-else-if="evaluationState === 'eligible'" class="flex items-center text-cm-verified pulse-verified"><i class="fas fa-check-circle text-xl mr-3"></i><div><span class="block text-sm font-bold uppercase tracking-wider">VERIFIED ELIGIBLE</span><span class="text-xs text-cm-muted">Profile explicitly matches all requirements.</span></div></div>
+                                <div v-else-if="evaluationState === 'cannot_verify'" class="flex items-center text-cm-warning"><i class="fas fa-circle-question text-xl mr-3"></i><div><span class="block text-sm font-bold uppercase tracking-wider">CANNOT VERIFY</span><span class="text-xs text-cm-muted">Insufficient profile data to determine eligibility.</span></div></div>
+                                <div v-else class="flex items-center text-cm-danger"><i class="fas fa-times-circle text-xl mr-3"></i><div><span class="block text-sm font-bold uppercase tracking-wider">NOT ELIGIBLE</span><span class="text-xs text-cm-muted">Profile evidence contradicts requirements.</span></div></div>
+                            </div>
+                        </div>
+                        <div class="p-8 flex-1">
+                            <!-- AI EXPLANATION LAYER -->
+                            <transition name="reveal">
+                                <div v-if="evaluationState !== 'running' && aiExplanation" class="mb-6 p-4 rounded-lg bg-cm-blue/10 border border-cm-blue/20 flex items-start">
+                                    <i class="fas fa-sparkles text-cm-blue mt-1 mr-3"></i>
+                                    <div>
+                                        <h4 class="text-xs font-bold text-cm-blue uppercase tracking-wider mb-1">AI Analysis</h4>
+                                        <p class="text-sm text-cm-text leading-relaxed">{{ aiExplanation }}</p>
+                                    </div>
+                                </div>
+                            </transition>
+
+                            <h3 class="text-sm font-semibold text-white mb-6 flex items-center"><i class="fas fa-list-check mr-2 text-cm-muted"></i> Requirement Audit Trail</h3>
+                            <div class="space-y-4">
+                                <transition-group name="reveal">
+                                    <div v-for="(step, index) in evaluationSteps" :key="index" v-show="step.visible" class="bg-cm-bg border border-cm-border rounded-lg p-5">
+                                        <div class="flex items-start justify-between">
+                                            <div><p class="text-xs font-medium text-cm-muted uppercase mb-1">{{ step.field }}</p><p class="text-sm text-white">{{ step.requirement_text }}</p></div>
+                                            <div v-if="step.display_status === 'checking'" class="text-cm-muted text-xs flex items-center"><i class="fas fa-spinner fa-spin mr-1"></i> Checking</div>
+                                            <div v-else-if="step.display_status === 'pass'" class="text-cm-verified text-xs font-bold uppercase bg-cm-verified/10 px-2 py-1 rounded"><i class="fas fa-check mr-1.5"></i> Satisfied</div>
+                                            <div v-else-if="step.display_status === 'fail'" class="text-cm-danger text-xs font-bold uppercase bg-cm-danger/10 px-2 py-1 rounded"><i class="fas fa-times mr-1.5"></i> Not Satisfied</div>
+                                            <div v-else class="text-cm-warning text-xs font-bold uppercase bg-cm-warning/10 px-2 py-1 rounded"><i class="fas fa-question mr-1.5"></i> Missing Data</div>
+                                        </div>
+                                        <transition name="reveal">
+                                            <div v-if="step.display_status !== 'checking'" class="mt-4 pt-4 border-t border-cm-border/50 grid grid-cols-2 gap-4">
+                                                <div><span class="block text-[10px] text-cm-muted uppercase mb-1">Official Rule</span><span class="text-xs font-mono text-cm-muted bg-cm-surface px-2 py-1 rounded inline-block">{{ step.rule }}</span></div>
+                                                <div><span class="block text-[10px] text-cm-muted uppercase mb-1">Profile Evidence</span><span class="text-xs text-white bg-cm-surface border border-cm-border px-2 py-1 rounded inline-block">{{ step.profile_val || 'None provided' }}</span></div>
+                                            </div>
+                                        </transition>
+                                    </div>
+                                </transition-group>
+                            </div>
+                        </div>
+                        <transition name="reveal">
+                            <div v-if="evaluationState !== 'running'" class="p-6 border-t border-cm-border bg-cm-surface flex justify-end space-x-3 mt-auto">
+                                <button @click="closeTrustEngine" class="px-4 py-2 rounded-lg text-sm font-medium text-cm-muted hover:text-white border border-cm-border bg-cm-bg transition-colors">Close</button>
+                                <button class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-cm-blue hover:bg-blue-500 transition-colors">Save to Pipeline</button>
+                            </div>
+                        </transition>
+                    </div>
+                </div>
+            </transition>
+        </template>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+        createApp({
+            setup() {
+                const currentView = ref('login');
+                const showNotifications = ref(false);
+                const loginForm = ref({ email: 'candidate@careermark.local', password: 'password123' });
+                const loginError = ref('');
+                const isAuthenticating = ref(false);
+                const isLoadingData = ref(false);
+                const token = ref(localStorage.getItem('cm_token') || '');
+                
+                const homeData = ref({ profile: null, hero: null, carousels: [] });
+                const pipelineData = ref({});
+                const activeEngine = ref(null);
+                const aiExplanation = ref('');
+                const selectedFile = ref(null);
+                const isParsingResume = ref(false);
+                const proposedProfile = ref(null);
+
+                const handleFileUpload = async (event) => {
+                    selectedFile.value = event.target.files[0];
+                    if (!selectedFile.value) return;
+                    isParsingResume.value = true;
+                    proposedProfile.value = null;
+                    
+                    const formData = new FormData();
+                    formData.append('file', selectedFile.value);
+                    
+                    try {
+                        const res = await fetch('/api/v1/platform/profile/resume/upload', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token.value}` },
+                            body: formData
+                        });
+                        const data = await res.json();
+                        if(res.ok) proposedProfile.value = data.proposed_updates;
+                    } catch(e) { console.error(e); } finally { isParsingResume.value = false; }
+                };
+
+                const confirmProfileUpdates = async () => {
+                    try {
+                        await fetch('/api/v1/platform/profile/resume/confirm', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token.value}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ updates: proposedProfile.value })
+                        });
+                        proposedProfile.value = null;
+                        await loadAllData(); // Reload UI to show new verified data
+                    } catch(e) { console.error(e); }
+                };
+
+                const evaluationState = ref('pending');
+                const evaluationSteps = ref([]);
+
+                const handleLogin = async () => {
+                    loginError.value = ''; isAuthenticating.value = true;
+                    try {
+                        const res = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loginForm.value) });
+                        const data = await res.json();
+                        if (res.ok) { token.value = data.token; localStorage.setItem('cm_token', data.token); currentView.value = 'home'; await loadAllData(); } 
+                        else { loginError.value = "Invalid credentials."; }
+                    } catch (e) { loginError.value = "Service Offline."; } 
+                    finally { isAuthenticating.value = false; }
+                };
+
+                const loadAllData = async () => {
+                    isLoadingData.value = true;
+                    try {
+                        const headers = { 'Authorization': `Bearer ${token.value}` };
+                        const [homeRes, pipeRes] = await Promise.all([fetch('/api/v1/platform/home', { headers }), fetch('/api/v1/platform/pipeline', { headers })]);
+                        homeData.value = await homeRes.json(); pipelineData.value = await pipeRes.json();
+                    } finally { setTimeout(() => isLoadingData.value = false, 400); }
+                };
+
+                const updateStatus = async (app_id, newStatus) => {
+                    await fetch(`/api/v1/platform/pipeline/${app_id}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token.value}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ new_status: newStatus }) });
+                    const res = await fetch('/api/v1/platform/pipeline', { headers: { 'Authorization': `Bearer ${token.value}` } });
+                    pipelineData.value = await res.json();
+                };
+
+                const openTrustEngine = async (opportunity) => {
+                    activeEngine.value = opportunity; evaluationState.value = 'running'; evaluationSteps.value = [];
+                    try {
+                        const res = await fetch(`/api/v1/platform/evaluate/${opportunity.id}`, { headers: { 'Authorization': `Bearer ${token.value}` } });
+                        const data = await res.json();
+                        let delay = 300;
+                        data.steps.forEach(step => {
+                            step.visible = false; step.display_status = 'checking'; evaluationSteps.value.push(step);
+                            setTimeout(() => { step.visible = true; setTimeout(() => step.display_status = step.status, 600); }, delay);
+                            delay += 1000;
+                        });
+                        setTimeout(() => { evaluationState.value = data.status; aiExplanation.value = data.ai_explanation; }, delay + 200);
+                    } catch (e) { evaluationState.value = 'error'; }
+                };
+
+                const closeTrustEngine = () => { activeEngine.value = null; evaluationSteps.value = []; evaluationState.value = 'pending'; aiExplanation.value = ''; };
+                const logout = () => { token.value = ''; localStorage.removeItem('cm_token'); currentView.value = 'login'; showNotifications.value = false; };
+                
+                if (token.value) { currentView.value = 'home'; loadAllData(); }
+                return { currentView, aiExplanation, handleFileUpload, isParsingResume, proposedProfile, confirmProfileUpdates, showNotifications, loginForm, loginError, isAuthenticating, isLoadingData, handleLogin, homeData, pipelineData, updateStatus, logout, activeEngine, evaluationState, evaluationSteps, openTrustEngine, closeTrustEngine }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
