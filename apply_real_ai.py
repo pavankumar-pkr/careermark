@@ -22,7 +22,7 @@ class AIService:
         prompt = f"A candidate's eligibility was evaluated as: '{status}'. The step-by-step engine evaluation is: {json.dumps(steps)}. Write a 2-3 sentence warm, professional explanation to the candidate. Tell them exactly what is missing or failing, or congratulate them if they pass. Do not invent requirements."
         
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash-latest")
+            model = genai.GenerativeModel("gemini-pro")
             response = model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
@@ -36,7 +36,7 @@ class AIService:
         prompt = f"Extract the candidate's academic details from the provided resume text. Return ONLY a valid JSON object using exactly these keys: 'degree' (string), 'branch' (string), 'graduation_year' (integer), 'age' (integer). If a piece of information is missing, use null.\\n\\nResume Text:\\n{text[:5000]}"
         
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash-latest")
+            model = genai.GenerativeModel("gemini-pro")
             response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
             return json.loads(response.text)
         except Exception as e:
