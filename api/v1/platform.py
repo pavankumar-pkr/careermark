@@ -1,22 +1,28 @@
 import subprocess
-from fastapi import BackgroundTasks
-from pydantic import BaseModel
-import hashlib, json, io
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import io
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import PyPDF2
+from datetime import datetime
+
 from db.database import get_db
 from db.models import UserProfile, Opportunity, Application, VerificationAudit
 from api.deps import get_current_user
 from core.eligibility import DeterministicEligibilityEngine
 from core.ai_service import AIService
-from datetime import datetime
-import PyPDF2
 
 router = APIRouter()
 
-class StatusUpdateSchema(BaseModel): new_status: str
-class ProfileUpdateSchema(BaseModel): updates: dict
+class StatusUpdateSchema(BaseModel): 
+    new_status: str
+
+class ProfileUpdateSchema(BaseModel): 
+    updates: dict
+
+class ScraperStatus(BaseModel):
+    message: str
+    status: str
 
 @router.get("/home")
 def get_home(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -54,15 +60,46 @@ def get_home(current_user = Depends(get_current_user), db: Session = Depends(get
 def get_pipeline(current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     apps = db.query(Application).filter(Application.user_id == current_user.id).all()
     pipeline = {"Target Identified": [], "Preparation Active": [], "Application Submitted": []}
+    
     for app in apps:
         if app.status in pipeline:
-            pipeline[app.status].append({"app_id": app.id, "title": app.opportunity.title, "org": app.opportunity.organization, "date": app.opportunity.closing_date.strftime("%Y-%m-%d")})
+            # FIXED: Handle missing closing dates safely to prevent 500 crashes
+            date_str = app.opportunity.closing_date.strftime("%Y-%m-%d") if app.opportunity.closing_date else "No Deadline"
+            pipeline[app.status].append({
+                "app_id": app.id, 
+                "title": app.opportunity.title, 
+                "org": app.opportunity.organization, 
+                "date": date_str
+            })
     return pipeline
+
+@router.post("/pipeline/{opp_id}")
+def add_to_pipeline(opp_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
+    opp = db.query(Opportunity).filter(Opportunity.id == opp_id).first()
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    
+    existing_app = db.query(Application).filter(Application.opportunity_id == opp_id, Application.user_id == current_user.id).first()
+    if existing_app:
+        return {"status": "success", "app_id": existing_app.id, "message": "Already in pipeline"}
+    
+    new_app = Application(
+        user_id=current_user.id, 
+        opportunity_id=opp_id, 
+        status="Target Identified"
+    )
+    db.add(new_app)
+    db.commit()
+    db.refresh(new_app)
+    
+    return {"status": "success", "app_id": new_app.id, "message": "Job added to pipeline successfully"}
 
 @router.put("/pipeline/{app_id}")
 def update_pipeline(app_id: int, data: StatusUpdateSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     app = db.query(Application).filter(Application.id == app_id, Application.user_id == current_user.id).first()
-    if not app: raise HTTPException(status_code=404, detail="Application not found")
+    if not app: 
+        raise HTTPException(status_code=404, detail="Application not found")
+    
     app.status = data.new_status
     db.commit()
     return {"status": "success"}
@@ -70,15 +107,25 @@ def update_pipeline(app_id: int, data: StatusUpdateSchema, current_user = Depend
 @router.get("/evaluate/{opp_id}")
 def evaluate_opportunity(opp_id: int, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     opp = db.query(Opportunity).filter(Opportunity.id == opp_id).first()
-    if not opp: raise HTTPException(status_code=404, detail="Opportunity not found")
+    if not opp: 
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if not profile or not profile.degree:
+        raise HTTPException(status_code=400, detail="User profile is incomplete. Please confirm your profile data first.")
     
     status, steps = DeterministicEligibilityEngine.evaluate(profile, opp.requirements)
     ai_explanation = AIService.explain_eligibility(status, steps)
     
     existing_audit = db.query(VerificationAudit).filter(VerificationAudit.user_id == current_user.id, VerificationAudit.opportunity_id == opp.id).order_by(VerificationAudit.evaluated_at.desc()).first()
     if not existing_audit or existing_audit.status != status:
-        audit = VerificationAudit(user_id=current_user.id, opportunity_id=opp.id, status=status, evidence_chain=steps, evaluated_at=datetime.utcnow())
+        audit = VerificationAudit(
+            user_id=current_user.id, 
+            opportunity_id=opp.id, 
+            status=status, 
+            evidence_chain=steps, 
+            evaluated_at=datetime.utcnow()
+        )
         db.add(audit)
         db.commit()
     
@@ -99,14 +146,19 @@ async def upload_resume(file: UploadFile = File(...), current_user = Depends(get
 @router.post("/profile/resume/confirm")
 def confirm_profile_updates(data: ProfileUpdateSchema, current_user = Depends(get_current_user), db: Session = Depends(get_db)):
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    
+    # FIXED: Guarantee the profile is created in the DB if it does not exist
+    if not profile:
+        profile = UserProfile(user_id=current_user.id)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+
     for key, value in data.updates.items():
-        if hasattr(profile, key):
-            setattr(profile, key, value)
+        setattr(profile, key, value)
+    
     db.commit()
     return {"status": "success", "message": "Profile updated securely."}
-class ScraperStatus(BaseModel):
-    message: str
-    status: str
 
 @router.post("/scrape", response_model=ScraperStatus)
 def trigger_scraper(background_tasks: BackgroundTasks):
