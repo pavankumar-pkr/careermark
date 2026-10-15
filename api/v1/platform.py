@@ -23,10 +23,31 @@ def get_home(current_user = Depends(get_current_user), db: Session = Depends(get
     profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
     opps = db.query(Opportunity).all()
     hero_opp = next((o for o in opps if "Cyber" in (o.tags or [])), opps[0] if opps else None)
+    
     return {
-        "profile": {"name": profile.full_name, "institution": profile.institution, "degree": profile.degree, "age": profile.age, "graduation_year": profile.graduation_year},
-        "hero": {"id": hero_opp.id, "title": hero_opp.title, "org": hero_opp.organization, "date": hero_opp.closing_date.strftime("%Y-%m-%d")} if hero_opp else None,
-        "carousels": [{"id": "top", "title": "Priority Targets", "items": [{"id": o.id, "title": o.title, "org": o.organization, "date": o.closing_date.strftime("%Y-%m-%d") if o.closing_date else "No Deadline"} for o in opps]}]
+        "profile": {
+            "name": profile.full_name, 
+            "institution": profile.institution, 
+            "degree": profile.degree, 
+            "age": profile.age, 
+            "graduation_year": profile.graduation_year
+        } if profile else None,
+        "hero": {
+            "id": hero_opp.id, 
+            "title": hero_opp.title, 
+            "org": hero_opp.organization, 
+            "date": hero_opp.closing_date.strftime("%Y-%m-%d") if hero_opp.closing_date else "No Deadline"
+        } if hero_opp else None,
+        "carousels": [{
+            "id": "top", 
+            "title": "Priority Targets", 
+            "items": [{
+                "id": o.id, 
+                "title": o.title, 
+                "org": o.organization, 
+                "date": o.closing_date.strftime("%Y-%m-%d") if o.closing_date else "No Deadline"
+            } for o in opps]
+        }]
     }
 
 @router.get("/pipeline")
