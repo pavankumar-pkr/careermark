@@ -590,18 +590,36 @@
                 const handleLogin = async () => {
                     loginError.value = ''; isAuthenticating.value = true;
                     try {
+                        // Convert request to URL-Encoded Form Data for FastAPI
+                        const formData = new URLSearchParams();
+                        formData.append('username', loginForm.value.email); // FastAPI strictly expects the key 'username'
+                        formData.append('password', loginForm.value.password);
+
                         const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(loginForm.value)
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: formData
                         });
-                        const data = await res.json();
-                        if (res.ok) { token.value = data.token; localStorage.setItem('cm_token', data.token); currentView.value = 'home'; await loadAllData(); }
-                        else { loginError.value = "Invalid credentials."; }
-                    } catch (e) { loginError.value = "Service Offline."; }
-                    finally { isAuthenticating.value = false; }
-                };
 
+                        const data = await res.json();
+
+                        // Handle standard FastAPI OAuth2 token response
+                        const validToken = data.access_token || data.token;
+
+                        if (res.ok && validToken) {
+                            token.value = validToken;
+                            localStorage.setItem('cm_token', validToken);
+                            currentView.value = 'home';
+                            await loadAllData();
+                        } else {
+                            loginError.value = "Invalid credentials.";
+                        }
+                    } catch (e) {
+                        loginError.value = "Service Offline.";
+                    } finally {
+                        isAuthenticating.value = false;
+                    }
+                };
                 const loadAllData = async () => {
                     isLoadingData.value = true;
                     try {

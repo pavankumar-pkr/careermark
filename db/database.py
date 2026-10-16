@@ -1,18 +1,16 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./careermark.db")
+# Fetch the Render database URL, fix the dialect if necessary, or fallback to local SQLite
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./careermark.db")
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Cloud providers often use postgres://, but SQLAlchemy requires postgresql://
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# SQLite requires specific arguments to prevent thread errors; Postgres does not
+engine_kwargs = {"check_same_thread": False} if "sqlite" in SQLALCHEMY_DATABASE_URL else {}
 
-# SQLite needs connect_args, Postgres does not
-connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
-
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
