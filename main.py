@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from api.v1 import auth, platform
 from db.database import engine, Base
@@ -10,6 +11,15 @@ app = FastAPI(
     title="CareerMark API",
     docs_url="/docs",
     redoc_url="/redoc"
+)
+
+# Added CORS middleware to allow frontend connection
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["Auth"])
